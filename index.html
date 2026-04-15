@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Tabla Comparativa • Interactiva</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500&display=swap');
+        
+        :root {
+            --tw-color-primary: #4f46e5;
+        }
+        
+        * {
+            transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, transform, box-shadow;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 200ms;
+        }
+        
+        .modal {
+            animation: modalPop 0.3s ease-out;
+        }
+        
+        @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        /* Heartbeat para hamburguesa */
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.18); }
+        }
+        
+        .heartbeat {
+            animation: heartbeat 1.8s ease-in-out infinite;
+        }
+
+        /* Efecto latente + glow para el icono de perfil (verde esmeralda) */
+        @keyframes profileGlow {
+            0%, 100% { box-shadow: 0 0 8px -2px rgb(16 185 129); }
+            50% { box-shadow: 0 0 25px 12px rgb(16 185 129 / 0.5); }
+        }
+        
+        .profile-glow {
+            animation: profileGlow 2s ease-in-out infinite;
+        }
+        
+        /* ── NUEVO: Estilo Pizarrón DUA (chalkboard) ── */
+        .pizarrón {
+            background: #0f4a37;
+            border: 18px solid #6b4226;
+            box-shadow: 
+                0 25px 50px -12px rgb(0 0 0 / 0.25),
+                inset 0 0 80px -20px rgba(255,255,255,0.15);
+            position: relative;
+        }
+        
+        .pizarrón::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 80%, rgba(255,255,255,0.06) 0%, transparent 60%);
+            pointer-events: none;
+            z-index: 1;
+            border-radius: inherit;
+        }
+        
+        .chalk-text {
+            font-family: 'Space Grotesk', sans-serif;
+            text-shadow: 
+                3px 3px 0 #1a2e24,
+                -2px -2px 0 #1a2e24,
+                2px -2px 0 #1a2e24,
+                -2px 2px 0 #1a2e24;
+            letter-spacing: -2px;
+        }
+        
+        .choice-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .choice-card:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 20px 25px -5px rgb(16 185 129 / 0.15);
+        }
+        
+        .number-circle {
+            background: white;
+            color: #0f4a37;
+            box-shadow: 
+                0 10px 15px -3px rgb(0 0 0 / 0.2),
+                inset 0 4px 6px -1px rgb(255 255 255 / 0.6);
+        }
+        
+        .plus-circle {
+            background: white;
+            color: #0f4a37;
+            box-shadow: 
+                0 10px 15px -3px rgb(0 0 0 / 0.2),
+                inset 0 4px 6px -1px rgb(255 255 255 / 0.6);
+        }
+        
+        .plus-circle:hover {
+            transform: scale(1.15) rotate(90deg);
+        }
+        
+        /* Scroll vertical elegante en el sidebar (solo en la zona de ítems) */
+        .sidebar-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #64748b #1e2937;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-track {
+            background: #1e2937;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb {
+            background: #64748b;
+            border-radius: 20px;
+        }
+        
+        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* ── MEJORA 4: scroll horizontal en panel flotante (móvil) ── */
+        @media (max-width: 768px) {
+            #hoverComparacion {
+                left: 84px;
+                right: 8px;
+                width: auto !important;
+                top: 50%;
+                transform: translateY(-50%);
+            }
+            #hoverComparacion .comparison-grid {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                gap: 1rem;
+                -webkit-overflow-scrolling: touch;
+                scroll-snap-type: x mandatory;
+                padding-bottom: 8px;
+            }
+            #hoverComparacion .comparison-grid > div {
+                min-width: 260px;
+                scroll-snap-align: start;
+                flex-shrink: 0;
+            }
+        }
+
+        /* ── MEJORA 2: perfil modal — gradient visible siempre ── */
+        .profile-modal-inner {
+            position: relative;
+            overflow: hidden;
+        }
+        .profile-modal-gradient {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 130px;
+            background: linear-gradient(135deg, #4f46e5, #10b981);
+            z-index: 0;
+            border-radius: inherit;
+        }
+        .profile-modal-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── MEJORA 5: zoom en card de perfil (info-box) ── */
+        .profile-info-box {
+            transition: transform 0.22s cubic-bezier(0.4,0,0.2,1), box-shadow 0.22s ease;
+        }
+        .profile-info-box:hover {
+            transform: scale(1.03);
+            box-shadow: 0 12px 32px rgba(79, 70, 229, 0.13);
+        }
+    </style>
+</head>
+<body class="smooth-scroll bg-slate-50 font-sans flex">
+
+    <!-- Sidebar PRO (sin cambios) -->
+    <nav class="fixed left-0 top-0 h-screen w-20 bg-slate-900 border-r border-slate-800 flex flex-col z-50 shadow-2xl">
+        
+        <!-- Hamburguesa con latido -->
+        <div class="text-4xl pt-6 pb-4 border-b border-slate-700 w-full text-center heartbeat text-white flex items-center justify-center">
+            ☰
+        </div>
+
+        <!-- Zona scrollable del menú -->
+        <div class="flex-1 sidebar-scroll overflow-y-auto flex flex-col gap-y-6 py-4 px-2">
+            
+            <button onmouseenter="mostrarComparacion(1)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                📘
+            </button>
+            
+            <button onmouseenter="mostrarComparacion(2)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                👨‍🏫
+            </button>
+
+            <button onmouseenter="mostrarComparacion(3)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                🧑‍🎓
+            </button>
+
+            <button onmouseenter="mostrarComparacion(4)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                📝
+            </button>
+
+            <button onmouseenter="mostrarComparacion(5)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                🔗
+            </button>
+
+            <button onmouseenter="mostrarComparacion(6)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                🔬
+            </button>
+
+            <button onmouseenter="mostrarComparacion(7)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                ❌
+            </button>
+
+            <button onmouseenter="mostrarComparacion(8)" onmouseleave="ocultarComparacion()" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                🌍
+            </button>
+
+            <!-- Línea divisora -->
+            <div class="flex flex-col items-center gap-y-1 px-2 my-1">
+                <div class="w-10 h-px bg-gradient-to-r from-transparent via-slate-500 to-transparent"></div>
+                <div class="w-6 h-px bg-indigo-500/60"></div>
+                <div class="w-10 h-px bg-gradient-to-r from-transparent via-slate-500 to-transparent"></div>
+            </div>
+
+            <button onclick="abrirModal('modalReflexion')" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                💭
+            </button>
+
+            <button onclick="abrirModal('modalReferencias')" 
+                    class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto hover:bg-slate-800">
+                📚
+            </button>
+        </div>
+
+        <!-- Icono de perfil -->
+        <button onclick="abrirModal('modalPerfil')" 
+                class="sidebar-item relative flex items-center justify-center w-12 h-12 rounded-2xl text-3xl mx-auto mb-6 profile-glow hover:bg-slate-800">
+            <img src="foto.jpg" 
+                 alt="Foto de perfil" 
+                 class="w-10 h-10 rounded-full object-cover" />
+        </button>
+    </nav>
+
+    <main class="ml-20 w-full flex flex-col min-h-screen">
+        
+        <header class="bg-white border-b sticky top-0 z-40 shadow-sm">
+            <div class="px-6 py-5 flex items-center justify-between">
+                <div class="flex items-center gap-x-3">
+                    <h1 class="text-2xl font-semibold tracking-tight text-slate-900">Tabla comparativa interactiva</h1>
+                </div>
+                <span class="text-xs font-medium px-3 py-1 bg-emerald-100 text-emerald-700 rounded-3xl">Héctor Leonel</span>
+            </div>
+        </header>
+
+        <!-- ── NUEVO DASHBOARD PIZARRÓN DUA ── -->
+        <section class="py-16 bg-slate-50 flex-grow">
+            <div class="max-w-6xl mx-auto px-6">
+                
+                <!-- Pizarrón principal -->
+                <div class="pizarrón rounded-3xl mx-auto max-w-5xl overflow-hidden">
+                    <div class="p-10 md:p-12 relative z-10">
+                        
+                        <!-- Cabecera del pizarrón con decoración estilo chalk -->
+                        <div class="flex items-start justify-between mb-10">
+                            <!-- Decoración izquierda -->
+                            <div class="flex flex-col items-center gap-1 text-5xl opacity-80">
+                                ⭐<br>✏️
+                            </div>
+                            
+                            <!-- Título central -->
+                            <div class="text-center flex-1 px-8">
+                                <h1 class="chalk-text text-6xl md:text-7xl font-bold tracking-[-3px] text-white mb-2">
+                                    Tabla comparativa interactiva
+                                </h1>
+                                <p class="text-4xl md:text-5xl font-medium text-white/95 tracking-[-1px]">
+                                    La didáctica que reproduzco vs. la que necesito
+                                </p>
+                                <div class="inline-flex items-center gap-x-3 mt-6 bg-white/10 text-white text-sm font-medium px-6 py-2 rounded-3xl backdrop-blur-md">
+                                    <span class="text-emerald-300">📌</span>
+                                    Interactúa con el <span class="font-bold">+</span> de cada casilla
+                                </div>
+                            </div>
+                            
+                            <!-- Decoración derecha -->
+                            <div class="flex flex-col items-center gap-1 text-5xl opacity-80">
+                                💡<br>🔬
+                            </div>
+                        </div>
+
+                        <!-- Grid de las 8 opciones interactivas -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            
+                            <!-- Opción 1 -->
+                            <div onclick="mostrarComparacion(1)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">1</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Concepción de enseñanza</h4>
+                                    <p class="text-emerald-100 text-lg">Transmisión vs. Construcción del conocimiento</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+
+                            <!-- Opción 2 -->
+                            <div onclick="mostrarComparacion(2)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">2</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Rol del docente</h4>
+                                    <p class="text-emerald-100 text-lg">Protagonista vs. Mediador</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+
+                            <!-- Opción 3 -->
+                            <div onclick="mostrarComparacion(3)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">3</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Rol del estudiante</h4>
+                                    <p class="text-emerald-100 text-lg">Pasivo vs. Activo y constructor</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+
+                            <!-- Opción 4 -->
+                            <div onclick="mostrarComparacion(4)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">4</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Tipo de evaluación</h4>
+                                    <p class="text-emerald-100 text-lg">Sumativa vs. Formativa continua</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+
+                            <!-- Opción 5 -->
+                            <div onclick="mostrarComparacion(5)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">5</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Relación teoría–práctica</h4>
+                                    <p class="text-emerald-100 text-lg">Teoría aislada vs. Integración contextualizada</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+
+                            <!-- Opción 6 -->
+                            <div onclick="mostrarComparacion(6)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">6</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Metodología</h4>
+                                    <p class="text-emerald-100 text-lg">Expositiva vs. Basada en problemas y proyectos</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+
+                            <!-- Opción 7 -->
+                            <div onclick="mostrarComparacion(7)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">7</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Uso del error</h4>
+                                    <p class="text-emerald-100 text-lg">Penalización vs. Oportunidad de aprendizaje</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+
+                            <!-- Opción 8 -->
+                            <div onclick="mostrarComparacion(8)" class="choice-card bg-white/10 hover:bg-white/15 border border-white/30 rounded-3xl p-6 flex items-start gap-5 cursor-pointer">
+                                <div class="number-circle w-14 h-14 rounded-full flex items-center justify-center text-4xl font-bold flex-shrink-0">8</div>
+                                <div class="flex-1 pt-1">
+                                    <h4 class="text-white text-2xl font-semibold leading-none mb-2">Finalidad educativa</h4>
+                                    <p class="text-emerald-100 text-lg">Cumplir programa vs. Pensamiento crítico y transformación</p>
+                                </div>
+                                <div class="plus-circle w-14 h-14 rounded-full flex items-center justify-center text-5xl font-light leading-none flex-shrink-0 mt-1">+</div>
+                            </div>
+                        </div>
+
+                        <!-- Decoración inferior del pizarrón -->
+                        <div class="flex justify-between items-end mt-12 text-4xl opacity-70">
+                            <div>♫♪</div>
+                            
+                            <div class="text-right">Aa Bb Cc</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Declaración de uso de IA (mantenida) -->
+        <section class="bg-white py-16">
+            <div class="max-w-4xl mx-auto px-6">
+                <div class="bg-amber-50 border border-amber-200 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row gap-8 items-center shadow-sm">
+                    <div class="text-6xl">🤖</div>
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold mb-2 text-slate-900">DECLARACIÓN DE USO DE IA</h2>
+                        <p class="text-slate-700 text-md leading-relaxed">
+                            Este trabajo contó con el apoyo de inteligencia artificial como herramienta de apoyo para la organización de ideas y redacción, 
+                            siendo revisado, analizado y adaptado críticamente por el estudiante.
+                        </p>
+                    </div>
+                    <div class="text-center shrink-0">
+                        <div class="text-xs font-mono bg-white px-4 py-2 rounded-2xl shadow border border-slate-100">✅ Revisado y validado por Héctor Leonel</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="bg-[#242424] text-slate-300 py-12 border-t border-slate-800 mt-auto">
+            <div class="max-w-5xl mx-auto px-8 grid md:grid-cols-2 gap-12">
+                
+                <div>
+                    <div class="flex items-center gap-x-3 mb-4">
+                        <span class="text-3xl text-amber-400">🎓</span>
+                        <h3 class="text-2xl font-bold text-white">Educación MX</h3>
+                    </div>
+                    <p class="text-slate-400 leading-relaxed mb-6 max-w-sm text-sm">
+                        Tabla comparativa digital e interactivo sobre "La didáctica que reproduzco/conozco vs. la didáctica que necesito". 
+                        Ahora con Pizarrón DUA interactivo para mayor inmersión.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-bold text-white mb-6 inline-block border-b-2 border-amber-500 pb-1">Contacto</h3>
+                    <ul class="space-y-4 text-sm">
+                        <li class="flex items-center gap-x-4">
+                            <span class="text-amber-500 text-lg">👤</span>
+                            <span>Autor: Ing. Héctor L. Pérez</span>
+                        </li>
+                        <li class="flex items-center gap-x-4">
+                            <span class="text-amber-500 text-lg">✉️</span>
+                            <span>ue0204@unienigma.edu.mx</span>
+                        </li>
+                        <li class="flex items-center gap-x-4">
+                            <span class="text-amber-500 text-lg">📞</span>
+                            <span>+52 (984) 211-9971</span>
+                        </li>
+                        <li class="flex items-center gap-x-4">
+                            <span class="text-amber-500 text-lg">📍</span>
+                            <span>Playa del Carmen, Q. Roo.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="max-w-5xl mx-auto px-8 mt-12 pt-6 border-t border-[#3a3a3a] text-center text-xs text-slate-500">
+                © 2026 Tabla Comparativa Digital Interactivo • Pizarrón DUA
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- PANEL FLOTANTE de comparación (mantenido y mejorado para clic en pizarrón) -->
+    <div id="hoverComparacion" 
+         onmouseenter="clearHoverTimeout()" 
+         onmouseleave="ocultarComparacion()"
+         class="hidden fixed left-[88px] top-1/2 -translate-y-1/2 bg-white rounded-3xl shadow-2xl w-[640px] max-h-[85vh] overflow-hidden z-[9999] border border-slate-100">
+        
+        <div class="px-8 py-6 border-b flex items-start justify-between bg-white relative">
+            <h3 id="hoverTitle" class="text-2xl font-bold text-slate-800 pr-8 leading-snug"></h3>
+            <button onclick="ocultarComparacion()" class="text-4xl leading-none text-slate-400 hover:text-slate-900">&times;</button>
+        </div>
+        
+        <div class="p-8 bg-slate-50 max-h-[calc(85vh-73px)] overflow-y-auto overflow-x-auto">
+            <div class="comparison-grid grid md:grid-cols-2 gap-6">
+                <div class="comparison-left rounded-3xl p-8 shadow-sm">
+                    <div class="flex items-center gap-x-3 mb-5">
+                        <span class="text-4xl">📖</span>
+                        <h4 class="font-bold text-amber-900 text-lg">Didáctica que reproduzco/conozco<br><span class="font-normal opacity-80 text-sm">(tradicional)</span></h4>
+                    </div>
+                    <p id="hoverTradicional" class="text-amber-900/90 leading-relaxed"></p>
+                </div>
+                
+                <div class="comparison-right rounded-3xl p-8 shadow-sm">
+                    <div class="flex items-center gap-x-3 mb-5">
+                        <span class="text-4xl">🔬</span>
+                        <h4 class="font-bold text-emerald-900 text-lg">Didáctica que necesito<br><span class="font-normal opacity-80 text-sm">(crítica y constructivista)</span></h4>
+                    </div>
+                    <p id="hoverNecesario" class="text-emerald-900/90 leading-relaxed"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Meta Reflexión (sin cambios) -->
+    <div onclick="if(event.target.id === 'modalReflexion') cerrarModal('modalReflexion')" 
+         id="modalReflexion"
+         class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] items-center justify-center px-4">
+        <div class="modal bg-white rounded-[2rem] max-w-xl w-full shadow-2xl relative">
+            <button onclick="cerrarModal('modalReflexion')" class="absolute top-6 right-6 text-4xl leading-none text-slate-400 hover:text-slate-900">&times;</button>
+            
+            <div class="p-10 md:p-12">
+                <div class="mb-8">
+                    <span class="px-4 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-3xl tracking-widest uppercase mb-3 inline-block">análisis crítico</span>
+                    <h3 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                        <span>💭</span> Meta Reflexión
+                    </h3>
+                </div>
+                
+                <div class="prose max-w-none text-slate-600 leading-relaxed max-h-[58vh] overflow-y-auto pr-4 sidebar-scroll space-y-5">
+                    <p>Al analizar la didáctica que reproduzco o he experimentado, identifico una fuerte influencia del enfoque tradicional, donde el docente es el centro del proceso y el estudiante adopta un rol mayormente pasivo. Aunque este modelo permite organizar contenidos de manera estructurada, limita el desarrollo del pensamiento crítico y la participación activa del estudiante.</p>
+                    <p>Existe una contradicción importante entre lo que considero ideal y lo que realmente se practica, especialmente en la evaluación, ya que frecuentemente se priorizan exámenes memorísticos en lugar de procesos formativos. Esta tensión evidencia la necesidad de transitar hacia un enfoque didáctico más crítico y constructivista.</p>
+                    <p>La didáctica que necesito implica asumir un rol diferente como docente, donde no solo se transmitan conocimientos, sino que se diseñen experiencias significativas que promuevan la reflexión, el análisis y la transformación del entorno. Esto también requiere reconocer al estudiante como sujeto activo del aprendizaje.</p>
+                    <p>Finalmente, esta reflexión me permite tomar conciencia de mis propias prácticas y de la importancia de alinearlas con enfoques pedagógicos más actuales, con el fin de lograr una educación más significativa, crítica y contextualizada.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Referencias (sin cambios) -->
+    <div onclick="if(event.target.id === 'modalReferencias') cerrarModal('modalReferencias')" 
+         id="modalReferencias"
+         class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] items-center justify-center px-4">
+        <div class="modal bg-white rounded-[2rem] max-w-3xl w-full shadow-2xl relative">
+            <button onclick="cerrarModal('modalReferencias')" class="absolute top-6 right-6 text-4xl leading-none text-slate-400 hover:text-slate-900">&times;</button>
+            
+            <div class="p-10 md:p-12">
+                <h3 class="text-3xl font-bold text-slate-900 mb-8 flex items-center gap-3">
+                    <span>📚</span> Referencias (APA)
+                </h3>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="ref-card bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-lg text-slate-900 leading-snug">Díaz Barriga, F. (2006). Enseñanza situada: vínculo entre la escuela y la vida. McGraw-Hill.</h4>
+                            <p class="text-slate-500 mt-4 text-sm leading-relaxed">Referencia clave para entender la conexión entre teoría y práctica contextualizada en el enfoque constructivista.</p>
+                        </div>
+                        <div class="text-[10px] uppercase tracking-widest text-emerald-600 font-bold mt-6 pt-4 border-t border-slate-200">Fuente académica principal</div>
+                    </div>
+                    
+                    <div class="ref-card bg-slate-50 rounded-2xl p-6 border border-slate-100 flex flex-col">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-lg text-slate-900 leading-snug">Freire, P. (1970). Pedagogía del oprimido. Siglo XXI Editores.</h4>
+                            <p class="text-slate-500 mt-4 text-sm leading-relaxed">Obra fundamental del enfoque crítico que resalta la importancia del estudiante como sujeto activo y la transformación de la realidad.</p>
+                        </div>
+                        <div class="text-[10px] uppercase tracking-widest text-emerald-600 font-bold mt-6 pt-4 border-t border-slate-200">Base teórica crítica</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Perfil (sin cambios) -->
+    <div onclick="if(event.target.id === 'modalPerfil') cerrarModal('modalPerfil')" 
+         id="modalPerfil"
+         class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] items-center justify-center px-4">
+
+        <div class="modal profile-modal-inner bg-white rounded-3xl w-full max-w-sm shadow-2xl relative text-center p-10">
+            
+            <div class="profile-modal-gradient"></div>
+
+            <div class="profile-modal-content">
+
+                <button onclick="cerrarModal('modalPerfil')" class="absolute top-4 right-4 text-3xl leading-none text-white/90 hover:text-white z-10">
+                    &times;
+                </button>
+                
+                <div class="w-24 h-24 mx-auto mb-4 bg-white rounded-2xl shadow-xl border-4 border-white flex items-center justify-center overflow-hidden mt-8 text-4xl ring-2 ring-indigo-300/60">
+                    <img 
+                        src="foto.jpg" 
+                        alt="Foto de perfil - Héctor L. Pérez" 
+                        class="w-full h-full object-cover"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                    >
+                    <span style="display:none;" class="w-full h-full items-center justify-center text-4xl bg-gradient-to-br from-indigo-100 to-emerald-100">🏫</span>
+                </div>
+                
+                <h3 class="text-2xl font-bold text-slate-900 mb-1">Ing. Héctor L. Pérez Ramírez</h3>
+                <p class="text-indigo-600 font-medium mb-6 text-sm tracking-wide">Autor</p>
+                
+                <div class="profile-info-box bg-white rounded-2xl p-5 text-left shadow-sm border border-slate-100">
+                    <div class="mb-4">
+                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Docente a cargo</p>
+                        <p class="font-semibold text-slate-800 text-sm">Dra. Rubí Nabile Ramírez Escobedo</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Fecha de elaboración</p>
+                        <p class="font-semibold text-slate-800 text-sm">12-abr-26</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos con icono específico por ítem (sin cambios)
+        const criteriosData = {
+            1: { icon: "📘", titulo: "1. Concepción de enseñanza", subtitulo: "Transmisión vs. Construcción del conocimiento", tradicional: "La enseñanza se centra en la transmisión de contenidos por parte del docente.", necesario: "La enseñanza se concibe como un proceso activo de construcción del conocimiento." },
+            2: { icon: "👨‍🏫", titulo: "2. Rol del docente", subtitulo: "Protagonista vs. Mediador", tradicional: "Es el protagonista, transmite información y controla la clase.", necesario: "Es mediador, guía y diseña experiencias de aprendizaje significativas." },
+            3: { icon: "🧑‍🎓", titulo: "3. Rol del estudiante", subtitulo: "Pasivo vs. Activo y constructor", tradicional: "Es pasivo, escucha y memoriza información.", necesario: "Es activo, participa, reflexiona y construye su propio aprendizaje." },
+            4: { icon: "📝", titulo: "4. Tipo de evaluación", subtitulo: "Sumativa vs. Formativa continua", tradicional: "Evaluación sumativa basada en exámenes finales.", necesario: "Evaluación formativa, continua y centrada en procesos." },
+            5: { icon: "🔗", titulo: "5. Relación teoría–práctica", subtitulo: "Teoría aislada vs. Integración contextualizada", tradicional: "Predomina la teoría con poca aplicación práctica.", necesario: "Integración constante entre teoría y práctica contextualizada." },
+            6: { icon: "🔬", titulo: "6. Metodología", subtitulo: "Expositiva vs. Basada en problemas y proyectos", tradicional: "Clases expositivas tradicionales.", necesario: "Aprendizaje basado en problemas, proyectos y colaboración." },
+            7: { icon: "❌", titulo: "7. Uso del error", subtitulo: "Penalización vs. Oportunidad de aprendizaje", tradicional: "El error se penaliza.", necesario: "El error se considera parte del aprendizaje." },
+            8: { icon: "🌍", titulo: "8. Finalidad educativa", subtitulo: "Cumplir programa vs. Pensamiento crítico y transformación", tradicional: "Cumplir con el programa y contenidos.", necesario: "Desarrollar pensamiento crítico y transformar la realidad." }
+        };
+
+        let hoverTimeout = null;
+
+        function mostrarComparacion(id) {
+            if (hoverTimeout) clearTimeout(hoverTimeout);
+            
+            const data = criteriosData[id];
+            if (!data) return;
+
+            document.getElementById('hoverTitle').innerHTML = `${data.icon} ${data.titulo} - <span class="text-slate-500 font-medium">${data.subtitulo}</span>`;
+            document.getElementById('hoverTradicional').innerHTML = data.tradicional;
+            document.getElementById('hoverNecesario').innerHTML = data.necesario;
+
+            const panel = document.getElementById('hoverComparacion');
+            panel.classList.remove('hidden');
+        }
+
+        function ocultarComparacion() {
+            hoverTimeout = setTimeout(() => {
+                const panel = document.getElementById('hoverComparacion');
+                panel.classList.add('hidden');
+            }, 280);
+        }
+
+        function clearHoverTimeout() {
+            if (hoverTimeout) {
+                clearTimeout(hoverTimeout);
+                hoverTimeout = null;
+            }
+        }
+
+        function abrirModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function cerrarModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        // Inicialización: mensaje opcional en consola para confirmar que el pizarrón DUA está activo
+        console.log('%c✅ Pizarrón DUA cargado correctamente. ¡Haz clic en los "+" para comparar!', 'color:#10b981; font-weight:600');
+    </script>
+</body>
+</html>
